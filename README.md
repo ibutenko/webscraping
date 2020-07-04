@@ -36,6 +36,7 @@ The class currently supports 3 use cases:
                 """ 
 
 Usage:
+
         tc = ws.getTableValue('USAState', 'Washington', 'TotalCases')
         td = ws.getTableValue('USAState', 'Washington', 'TotalDeaths')
         ts = ws.getTableValue('USAState', 'Washington', 'TotalTests')

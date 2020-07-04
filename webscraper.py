@@ -19,14 +19,28 @@ class webscraper:
     Web scraper utilities to extract table data from Web pages.
     """
 
-    def getTableDF(url, table, extended = False, convert = True):
+    df = pd.DataFrame()
+    url = ""    
+
+    def click(self, driver, btnName):
+        """Currently not used and not tested"""
+        more_buttons = driver.find_elements_by_class_name("moreLink")
+        for x in range(len(more_buttons)):
+            if more_buttons[x].is_displayed():
+                driver.execute_script("arguments[0].click();", more_buttons[x])
+                time.sleep(1)
+        page_source = driver.page_source
+        return page_source
+
+    def getWebTable(self, table, extended = False, convert = True):
         """ Extract data from a table in a Web page, return a dataframe.
-        url (string) - address of a Webpage.
         table (string) - class name of a table.
+        url (string) - address of a Webpage.
         extended (bool)- use Selenium, when pages require JS. Default is False.
         convert (bool) - convert values to int. Default is True.
         """
         page_source = ""
+        url = self.url
 
         if extended:
             options = webdriver.ChromeOptions()
@@ -92,19 +106,30 @@ class webscraper:
             except ValueError:
                 pass
 
+        self.df = df
         return df
-                        
-    def getTableValue(df, indexname, rowvalue, colname):
+
+    def getGitTable(self):
+        """
+        Retrieve .CSV from GitHub
+        """
+        try:
+            self.df = pd.read_csv(self.url, error_bad_lines=False)
+        except urllib.error.HTTPError:
+            print("ERROR: Not found {0}".format(self.url))
+        return self.df
+                     
+    def getTableValue(self, indexname, rowvalue, colname):
         """ Returns a value of a cell in a dataframe. Somewhat similar to LOOKUP in Excel.
         indexname (string) - index column name (to search for a value in).
         rowvalue (string) - what to search for.
         colname (string) - column name to return value from 
         """ 
-        wa = df.loc[df[indexname] == rowvalue]
+        wa = self.df.loc[self.df[indexname] == rowvalue]
         res = wa[colname].to_string(header=False, index=False).split('\n')[0]
         return int(res)
 
-    def archive(df, fname, compress = False):
+    def archive(self, fname, compress = False):
         """ Store a timestamped copy of a dataframe as csv
         df (dataframe) - data to store.
         fname (string) - part of the filename, i.e. if fname = "test", file name will be 2020-05-01-test.csv 
@@ -118,12 +143,26 @@ class webscraper:
             ext = 'csv.gz'
             fn = "{0}\\{1}{2}.{3}".format(path, today, fname, ext)
             # compression_opts = dict(method='zip', archive_name='out.csv')  
-            df.to_csv(fn, index=False, compression="gzip")
+            self.df.to_csv(fn, index=False, compression="gzip")
         else:
             ext = 'csv'
             fn = "{0}\\{1}{2}.{3}".format(path, today, fname, ext)
-            df.to_csv(fn.format('csv'), index=False)
+            self.df.to_csv(fn.format('csv'), index=False)
         print("Archived to ", fn)
 
-    def __init__(self, url, table):
-        self.url, self.table = url, table
+    def __init__(self, url):
+        self.url = url
+
+"""
+url = 'https://www.worldometers.info/coronavirus/country/us/'
+table = "usa_table_countries"
+ws = webscraper(url)
+df = ws.getWebTable(table)
+print(df)
+
+url = 'https://www.doh.wa.gov/Emergencies/Coronavirus'
+table = "table-striped"
+ws = webscraper(url)
+df = ws.getWebTable(table, True)
+print(df)
+"""

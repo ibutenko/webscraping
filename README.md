@@ -25,7 +25,7 @@ The class currently supports 3 use cases:
 
 ```Python
         today = date.today().strftime("%m-%d-%Y")
-        url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/{0}.csv'.format(today)
+        url = 'https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_daily_reports/{0}.csv'.format(today)
         ws = webscraper(url)
         df = ws.getGitTable()
 ```

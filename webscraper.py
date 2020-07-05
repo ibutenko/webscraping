@@ -7,8 +7,8 @@ import time
 import pandas as pd
 import subprocess
 from bs4 import BeautifulSoup
-from datetime import date
-import datetime
+from datetime import date, datetime, timedelta
+# import datetime
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 import openpyxl
@@ -32,17 +32,17 @@ class webscraper:
         page_source = driver.page_source
         return page_source
 
-    def getWebTable(self, table, extended = False, convert = True):
+    def getWebTable(self, table, timeout = 0, convert = True):
         """ Extract data from a table in a Web page, return a dataframe.
         table (string) - class name of a table.
         url (string) - address of a Webpage.
-        extended (bool)- use Selenium, when pages require JS. Default is False.
+        timeout (int)- if timeout is > 0, use Selenium and wait for timeout number of seconds. Use this when pages require JS to load. Default is 0.
         convert (bool) - convert values to int. Default is True.
         """
         page_source = ""
         url = self.url
 
-        if extended:
+        if timeout > 0:
             options = webdriver.ChromeOptions()
             options.add_argument('--ignore-certificate-errors')
             options.add_argument('--incognito')
@@ -50,7 +50,7 @@ class webscraper:
             options.add_argument('log-level=3') # Valid values are from 0 to 3: INFO = 0, WARNING = 1, LOG_ERROR = 2, LOG_FATAL = 3.
             driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
             driver.get(url)
-            time.sleep(2)
+            time.sleep(timeout)
             page_source = driver.page_source
             driver.quit()
         else:
@@ -113,13 +113,19 @@ class webscraper:
         """
         Retrieve .CSV from GitHub
         """
-        try:
-            self.df = pd.read_csv(self.url, error_bad_lines=False)
-        except urllib.error.HTTPError:
-            print("ERROR: Not found {0}".format(self.url))
+        if "github.com/" in self.url:
+            self.url = self.url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+
+        if "raw.githubusercontent.com" in self.url:
+            try:
+                self.df = pd.read_csv(self.url, error_bad_lines=False)
+            except urllib.error.HTTPError:
+                print("ERROR: Not found {0}".format(self.url))
+        else:
+                print("ERROR: url {0} is not a GitHub url".format(self.url))
         return self.df
                      
-    def getTableValue(self, indexname, rowvalue, colname):
+    def getTableValue(self, indexname, rowvalue, colname, convert = True):
         """ Returns a value of a cell in a dataframe. Somewhat similar to LOOKUP in Excel.
         indexname (string) - index column name (to search for a value in).
         rowvalue (string) - what to search for.
@@ -127,7 +133,9 @@ class webscraper:
         """ 
         wa = self.df.loc[self.df[indexname] == rowvalue]
         res = wa[colname].to_string(header=False, index=False).split('\n')[0]
-        return int(res)
+        if convert:
+            res = int(res)
+        return res
 
     def archive(self, fname, compress = False):
         """ Store a timestamped copy of a dataframe as csv
@@ -153,16 +161,34 @@ class webscraper:
     def __init__(self, url):
         self.url = url
 
-"""
-url = 'https://www.worldometers.info/coronavirus/country/us/'
-table = "usa_table_countries"
-ws = webscraper(url)
-df = ws.getWebTable(table)
-print(df)
 
-url = 'https://www.doh.wa.gov/Emergencies/Coronavirus'
-table = "table-striped"
-ws = webscraper(url)
-df = ws.getWebTable(table, True)
-print(df)
-"""
+def main():
+    """
+    Test code
+    """
+
+    url = 'https://www.worldometers.info/coronavirus/country/us/'
+    table = "usa_table_countries"
+    ws = webscraper(url)
+    df = ws.getWebTable(table)
+    print(df)
+    print(ws.getTableValue('USAState', 'Washington', 'TotalCases'))
+
+    url = 'https://www.doh.wa.gov/Emergencies/Coronavirus'
+    table = "table-striped"
+    ws = webscraper(url)
+    df = ws.getWebTable(table, 2)
+    print(df)
+    print(ws.getTableValue('County', 'Whatcom', 'Confirmed Cases'))
+
+    yesterday = datetime.strftime(datetime.now() - timedelta(1), '%m-%d-%Y') 
+    url = "https://github.com/CSSEGISandData/COVID-19/blob/master/csse_covid_19_data/csse_covid_19_daily_reports/{0}.csv".format(yesterday)
+    print(url)
+    ws = webscraper(url)
+    df = ws.getGitTable()
+    print(df)
+    print(ws.getTableValue('Admin2', 'Yakima', 'Active', False))
+
+if __name__ == "__main__":
+   # stuff only to run when not called via 'import' here
+   main()
